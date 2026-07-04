@@ -24,6 +24,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.shardingsphere.sql.parser.statement.core.enums.AggregationType;
 import org.apache.shardingsphere.sql.parser.statement.core.segment.dml.expr.ExpressionSegment;
+import org.apache.shardingsphere.sql.parser.statement.core.segment.dml.expr.simple.LiteralExpressionSegment;
 import org.apache.shardingsphere.sql.parser.statement.core.segment.dml.item.AggregationDistinctProjectionSegment;
 import org.apache.shardingsphere.sql.parser.statement.core.segment.dml.item.AggregationProjectionSegment;
 import org.apache.shardingsphere.sql.parser.statement.core.segment.generic.AliasSegment;
@@ -34,6 +35,7 @@ import org.apache.shardingsphere.test.infra.framework.extension.mock.StaticMockS
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
@@ -119,5 +121,16 @@ class AggregationProjectionConverterTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> AggregationProjectionConverter.convert(new AggregationProjectionSegment(0, 0, AggregationType.PRODUCT, "PRODUCT(expr)")));
         assertThat(ex.getMessage(), is("Unsupported SQL operator: `PRODUCT`"));
+    }
+
+    @Test
+    void assertConvertBuildsZeroLiteralForCountDistinctWithNullLiteral() {
+        AggregationDistinctProjectionSegment segment = new AggregationDistinctProjectionSegment(0, 0, AggregationType.COUNT, "COUNT(1, NULL)", "1, NULL");
+        segment.getParameters().addAll(Arrays.asList(new LiteralExpressionSegment(0, 0, 1), new LiteralExpressionSegment(0, 0, null)));
+        Optional<SqlNode> actual = AggregationProjectionConverter.convert(segment);
+        assertTrue(actual.isPresent());
+        SqlLiteral sqlLiteral = (SqlLiteral) actual.orElse(null);
+        assertNotNull(sqlLiteral);
+        assertThat(sqlLiteral.getValueAs(BigDecimal.class).signum(), is(0));
     }
 }
